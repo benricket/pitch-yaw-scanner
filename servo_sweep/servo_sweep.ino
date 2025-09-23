@@ -15,8 +15,8 @@ int YAW_PIN = 6;
 int SENSOR_PIN = A0;
 
 // Specify ranges and intervals of servo movement
-float PITCH_MIN = 0; 
-float PITCH_MAX = 90;
+float PITCH_MIN = 80; 
+float PITCH_MAX = 160;
 float PITCH_STEP = 5;
 float YAW_MIN = 0;
 float YAW_MAX = 90;
@@ -24,6 +24,10 @@ float YAW_STEP = 5;
 
 int LOW_READ_THRESHOLD = 80;
 int READ_ATTEMPTS = 10;
+
+int MS_PER_ITER = 80;
+int MS_PER_ITER_LARGE = 300;
+int MS_PER_YAW_RESET;
 
 void writeToSerial(float pitch_in, float yaw_in, int reading_in) {
   // Write the servo position and distance sensor information on serial
@@ -47,8 +51,13 @@ void setup() {
 void loop() {
   // Sweep across pitch
   for (float pitch = PITCH_MIN; pitch <= PITCH_MAX; pitch += PITCH_STEP) {
+    long current_time = millis();
     pitch_servo.write(pitch);
+    while (millis() - current_time < MS_PER_ITER_LARGE) {
+
+    }
     for (float yaw = YAW_MIN; yaw <= YAW_MAX; yaw += YAW_STEP) {
+      long current_time = millis();
       yaw_servo.write(yaw);
       int sensor_read = analogRead(SENSOR_PIN);
       int attempts = 1;
@@ -59,7 +68,17 @@ void loop() {
       if (attempts < READ_ATTEMPTS) {
         writeToSerial(pitch,yaw,sensor_read);
       }
+
+      if (yaw == YAW_MIN) {
+        while (millis() - current_time < MS_PER_ITER_LARGE) {
+      }}
+      else {
+      while (millis() - current_time < MS_PER_ITER) {
+      }}
     }
-  }
+    current_time = millis();
+    while (millis() - current_time < MS_PER_ITER_LARGE) {
+
+    }
   writeToSerial(-1,-1,-1);
-}
+  }}

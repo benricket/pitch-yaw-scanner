@@ -41,7 +41,17 @@ def main():
     processed,unprocessed = process_data(pitch_list,yaw_list,reading_list)
     display_data(processed)
 
-        
+def voltage_to_dist(readings):
+    """
+    Use the provided transfer function of the sensor to convert voltage readings
+    into distances
+    """
+    ### Exact points estimated from graphed transfer function
+    dist_list = []
+    for reading in readings:
+        if reading > 0.4 and reading < 2.0:
+            voltage = reading * (5 / 1024)
+            dist_list.append(1/((1/60)*voltage))
 
 def process_data(pitches,yaws,readings):
     """
