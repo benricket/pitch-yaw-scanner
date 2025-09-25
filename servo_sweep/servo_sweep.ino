@@ -1,13 +1,16 @@
 #include <Servo.h>
 
-// Test script to get servos moving
+/*
+Arduino script to sweep two servos across given angles when reading
+data from a distance sensor. Works in conjunction with a Python 
+script to listen to the data relayed over serial and send commands
+over serial instructing the servos to begin movement.
+
+Written by Ben Ricket and Nathaniel Banse
+*/ 
 
 Servo pitch_servo;
 Servo yaw_servo;
-
-int posA = 0;
-int posB = 0;
-int pos = 0;
 
 // Specify pins for pitch and yaw servos
 int PITCH_PIN = 5;
@@ -25,9 +28,20 @@ float YAW_STEP = 5;
 int LOW_READ_THRESHOLD = 80;
 int READ_ATTEMPTS = 10;
 
-int MS_PER_ITER = 80;
+int MS_PER_ITER = 40;
 int MS_PER_ITER_LARGE = 300;
-int MS_PER_YAW_RESET;
+
+int pitch_min;
+int pitch_max;
+int yaw_min;
+int yaw_max;
+
+// Passed by Python script, determines if scan should be running
+int run_servos = 0;
+//unsigned long currentTime = 0;
+
+// Commands passed by Python script to instruct servo behavior
+enum RunCommand {SERVO_STOP = 1, SERVO_HORIZONTAL_START = 2, SERVO_VERTICAL_START = 3, SERVO_BOTH_START = 4, CALIBRATE = 5};
 
 void writeToSerial(float pitch_in, float yaw_in, int reading_in) {
   // Write the servo position and distance sensor information on serial
@@ -49,36 +63,103 @@ void setup() {
 }
 
 void loop() {
-  // Sweep across pitch
-  for (float pitch = PITCH_MIN; pitch <= PITCH_MAX; pitch += PITCH_STEP) {
-    long current_time = millis();
-    pitch_servo.write(pitch);
-    while (millis() - current_time < MS_PER_ITER_LARGE) {
-
+  // Attempt to read serial data from Python script
+  // 1 indicates a command to start scanning, 0 indicates a 
+  // command to stop scanning. Other values are ignored
+  unsigned long current_time;
+  //int pitch_min;
+  //int pitch_max;
+  //int yaw_min;
+  //int yaw_max;
+  int serial_read;
+  if (Serial.available() > 0) {
+    serial_read = Serial.parseInt();
+    switch (serial_read) {
+      case SERVO_STOP:
+        run_servos = 0;
+        break;
+      case SERVO_HORIZONTAL_START:
+        pitch_min = 120;
+        pitch_max = 120;
+        yaw_min = 0;
+        yaw_max = 90;
+        run_servos = 1;
+        break;
+      case SERVO_VERTICAL_START:
+        pitch_min = 60;
+        pitch_max = 140;
+        yaw_min = 45;
+        yaw_max = 45;
+        run_servos = 1;
+        break;
+      case SERVO_BOTH_START:
+        pitch_min = 60;
+        pitch_max = 140;
+        yaw_min = 0;
+        yaw_max = 90;
+        run_servos = 1;
+        break;
+      case CALIBRATE:
+        pitch_min = 120;
+        pitch_max = 120;
+        yaw_min = 45;
+        yaw_max = 45;
+        run_servos = 1;
+        break;
+      default:
+        break;
     }
-    for (float yaw = YAW_MIN; yaw <= YAW_MAX; yaw += YAW_STEP) {
-      long current_time = millis();
+  }
+  if (run_servos) {
+    // Sweep across pitch
+    for (float yaw = yaw_min; yaw <= yaw_max; yaw += YAW_STEP) {
+      current_time = millis();
       yaw_servo.write(yaw);
-      int sensor_read = analogRead(SENSOR_PIN);
-      int attempts = 1;
-      while (sensor_read < LOW_READ_THRESHOLD && attempts < READ_ATTEMPTS) {
-        sensor_read = analogRead(SENSOR_PIN);
+
+      while (millis() - current_time < MS_PER_ITER_LARGE) {
+        delay(1);
       }
 
-      if (attempts < READ_ATTEMPTS) {
-        writeToSerial(pitch,yaw,sensor_read);
+      for (float pitch = pitch_min; pitch <= pitch_max; pitch += PITCH_STEP) {
+        current_time = millis();
+
+        // After writing servo position, wait for it to finish moving
+        // Moving back from max pitch to min pitch takes more time 
+        pitch_servo.write(pitch);
+        yaw_servo.write(yaw);
+        if (pitch == pitch_min) {
+          while (millis() - current_time < MS_PER_ITER_LARGE) {
+            delay(1);
+          }
+        } else {
+          while (millis() - current_time < MS_PER_ITER) {
+            delay(1);
+          }
+        }
+
+        // Attempt reading the sensor data
+        int sensor_read = analogRead(SENSOR_PIN);
+        int attempts = 1;
+
+        // Values less than LOW_READ_THRESHOLD are not valid measurements
+        // Give finite attempts to read valid measurement; give up if not
+        while (sensor_read < LOW_READ_THRESHOLD && attempts < READ_ATTEMPTS) {
+          sensor_read = analogRead(SENSOR_PIN);
+          attempts++;
+        }
+
+        // Only write out if measurement was valid
+        if (attempts < READ_ATTEMPTS) {
+          writeToSerial(pitch,yaw,sensor_read);
+        }
       }
 
-      if (yaw == YAW_MIN) {
-        while (millis() - current_time < MS_PER_ITER_LARGE) {
-      }}
-      else {
-      while (millis() - current_time < MS_PER_ITER) {
-      }}
+      current_time = millis();
+      while (millis() - current_time < MS_PER_ITER_LARGE) {
+        delay(1);
+      }
     }
-    current_time = millis();
-    while (millis() - current_time < MS_PER_ITER_LARGE) {
-
-    }
-  writeToSerial(-1,-1,-1);
-  }}
+    writeToSerial(-1,-1,-1);
+    run_servos = 0;
+  }
+}
