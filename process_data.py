@@ -39,7 +39,9 @@ def main():
                 while user_in not in {1, 2, 3, 4, 5}:
                     user_in = int(
                         input(
-                            "Enter mode: 1 (Yaw servo only), 2 (Pitch servo only), 3 (Both servos), 4 (Single data point), 5 (Load data from recorded_scan.csv): "
+                            "Enter mode: 1 (Yaw servo only), 2 (Pitch servo only), 3 "\
+                            "(Both servos), 4 (Single data point), 5 (Load data from "\
+                            "recorded_scan.csv): "
                         )
                     )
                 if user_in == 5:
@@ -225,14 +227,12 @@ def init_connection():
     Initialize serial connection with a port specified by the first argument
     passed when calling the python file.
     """
-    print("hi")
     port = "/dev/cu.usbmodem1051DB37DE2C2"
     if len(sys.argv) > 1:
         port = sys.argv[1]
     cxn = Serial(port, baudrate=9600)
     cxn.write([int(1)])
     return cxn
-
 
 if __name__ == "__main__":
     if len(sys.argv) > 2 and sys.argv[2] == "0":
